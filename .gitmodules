@@ -1,0 +1,3 @@
+[submodule "voltdb-client-python"]
+	path = voltdb-client-python
+	url = git@github.com:VoltDB/voltdb-client-python.git
