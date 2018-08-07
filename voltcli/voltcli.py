@@ -8,6 +8,7 @@ from prompt_toolkit.styles import Style
 from pygments.lexers.sql import SqlLexer
 
 from subprocess import call
+from voltcompleter import VoltCompleter
 
 import click
 
@@ -63,6 +64,8 @@ class PGCli(object):
 @click.option('-t', '--query-timeout', default=10000,
               help='Read-only queries that take longer than this number of milliseconds will abort.')
 def cli(servers, port, user, password, credentials, kerberos, query_timeout):
+    sql_completer = VoltCompleter()
+
     session = PromptSession(
         lexer=PygmentsLexer(SqlLexer), completer=sql_completer, style=style)
 
