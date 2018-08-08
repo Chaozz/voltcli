@@ -141,6 +141,7 @@
             "USER MAPPING",
             "VIEW"
         ],
+        "EXEC": [],
         "EXPLAIN": [],
         "ELSE": [],
         "ENCODING": [],
@@ -275,6 +276,30 @@
         "SUM",
         "TOP",
         "UCASE"
+    ],
+    "procedures": [
+        "@Explain",
+        "@ExplainProc",
+        "@ExplainView",
+        "@GetPartitionKeys",
+        "@Pause",
+        "@Ping",
+        "@Promote",
+        "@Quiesce",
+        "@Resume",
+        "@Shutdown",
+        "@SnapshotDelete",
+        "@SnapshotRestore",
+        "@SnapshotSave",
+        "@SnapshotScan",
+        "@Statistics",
+        "@StopNode",
+        "@SwapTables",
+        "@SystemCatalog",
+        "@SystemInformation",
+        "@UpdateApplicationCatalog",
+        "@UpdateClasses",
+        "@UpdateLogging"
     ],
     "datatypes": [
         "BIGINT",
