@@ -53,6 +53,7 @@ Datatype = namedtuple('Datatype', ['schema'])
 Alias = namedtuple('Alias', ['aliases'])
 
 Path = namedtuple('Path', [])
+Procedure = namedtuple('Procedure', [])
 
 
 class SqlStatement(object):
@@ -234,6 +235,9 @@ SPECIALS_SUGGESTION = {
 def suggest_based_on_last_token(token, stmt):
     if isinstance(token, string_types):
         token_v = token.lower()
+    elif token.value.lower() == "exec":
+        # if exec, then it must be a Stored Procedure
+        return (Procedure(),)
     elif isinstance(token, Comparison):
         # If 'token' is a Comparison type such as
         # 'select * FROM abc a JOIN def d ON a.id = d.'. Then calling
@@ -350,7 +354,8 @@ def suggest_based_on_last_token(token, stmt):
         return ()
     elif (token_v.endswith('join') and token.is_keyword) or (token_v in
                                                              (
-                                                             'copy', 'from', 'update', 'into', 'describe', 'truncate')):
+                                                                     'copy', 'from', 'update', 'into', 'describe',
+                                                                     'truncate')):
 
         schema = stmt.get_identifier_schema()
         tables = extract_tables(stmt.text_before_cursor)

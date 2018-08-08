@@ -2,14 +2,16 @@ from __future__ import print_function, unicode_literals
 
 import operator
 import re
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 from itertools import chain
 
+from cli_helpers.tabular_output import TabularOutputFormatter
 from prompt_toolkit.completion import Completer, Completion
 
 from parseutils.utils import last_word
 from prioritization import PrevalenceCounter
-from sqlcompletion import suggest_type, Column
+from sqlcompletion import suggest_type, Column, FromClauseItem, JoinCondition, Join, Function, Schema, Table, \
+    TableFormat, View, Alias, Database, Keyword, Special, Datatype, NamedQuery, Path, Procedure
 from voltliterals.literals import get_literals
 
 Match = namedtuple('Match', ['completion', 'priority'])
@@ -50,6 +52,7 @@ class VoltCompleter(Completer):
     keywords_tree = get_literals('keywords', type_=dict)
     keywords = tuple(set(chain(keywords_tree.keys(), *keywords_tree.values())))
     functions = get_literals('functions')
+    procedures = get_literals('procedures')
     datatypes = get_literals('datatypes')
     reserved_words = set(get_literals('reserved'))
 
@@ -59,7 +62,9 @@ class VoltCompleter(Completer):
         self.keyword_casing = "upper"
         self.name_pattern = re.compile(r"^[_a-z][_a-z0-9\$]*$")
         self.databases = []
-        self.dbmetadata = {'tables': {}, 'views': {}, 'functions': {},
+        # TODO: verify the structure and usage
+        self.dbmetadata = {'tables': {'test_table1': ['column1', 'column2'], 'test_table2': ['column3', 'column4']},
+                           'views': {}, 'functions': {},
                            'datatypes': {}}
         self.casing = {}
 
@@ -113,7 +118,7 @@ class VoltCompleter(Completer):
         if not collection:
             return []
         priority_order = [
-            'keyword', 'function', 'view', 'table', 'datatype', 'database',
+            'keyword', 'function', 'procedure', 'view', 'table', 'datatype', 'database',
             'schema', 'column', 'table alias', 'join', 'name join', 'fk join',
             'table format'
         ]
@@ -235,7 +240,6 @@ class VoltCompleter(Completer):
 
         for suggestion in suggestions:
             suggestion_type = type(suggestion)
-
             # Map suggestion type to method
             # e.g. 'table' -> self.get_table_matches
             matcher = self.suggestion_matchers[suggestion_type]
@@ -247,19 +251,128 @@ class VoltCompleter(Completer):
 
         return [m.completion for m in matches]
 
-    # TODO: currently return all column names
+    def make_candidate(self, name):
+        synonyms = (name, generate_alias(self.case(name)))
+        return Candidate(self.case(name), 0, 'column', synonyms)
+
     def get_column_matches(self, suggestion, word_before_cursor):
         tables = suggestion.table_refs
 
-        def make_candidate(name):
-            synonyms = (name, generate_alias(self.case(name)))
-            return Candidate(self.case(name), 0, 'column', synonyms)
-
         # TODO: make sure fit the real dbmetadata structure
+        if not tables or len(tables) == 0:
+            return self.find_matches(word_before_cursor,
+                                     [c for column_list in self.dbmetadata['tables'].values() for c in column_list],
+                                     meta='column')
         return self.find_matches(word_before_cursor,
-                                 [make_candidate(c.name) for t in self.dbmetadata['tables'] for c in t['columns']],
+                                 [c for column_list in
+                                  [self.dbmetadata['tables'].get(table.name, []) for table in tables] for c in
+                                  column_list],
                                  meta='column')
 
+    def get_join_matches(self, suggestion, word_before_cursor):
+
+        return self.find_matches(word_before_cursor,
+                                 self.dbmetadata['tables'].keys(),
+                                 meta='join')
+
+    # TODO: this can be improved
+    def get_join_condition_matches(self, suggestion, word_before_cursor):
+        return self.get_column_matches(suggestion, word_before_cursor)
+
+    def get_function_matches(self, suggestion, word_before_cursor, alias=False):
+        return self.find_matches(word_before_cursor, self.functions, mode='strict',
+                                 meta='function')
+
+    # volt don't have this
+    def get_schema_matches(self, suggestion, word_before_cursor):
+        return []
+
+    def get_from_clause_item_matches(self, suggestion, word_before_cursor):
+        return (
+                self.find_matches(word_before_cursor,
+                                  self.dbmetadata['tables'].keys(), meta='table')
+                + self.find_matches(word_before_cursor,
+                                    self.dbmetadata['views'].keys(), meta='view')
+                + self.find_matches(word_before_cursor, self.functions, meta='function')
+        )
+
+    def get_table_matches(self, suggestion, word_before_cursor, alias=False):
+        self.find_matches(word_before_cursor,
+                          self.dbmetadata['tables'].keys(), meta='table')
+
+    def get_table_formats(self, _, word_before_cursor):
+        formats = TabularOutputFormatter().supported_formats
+        return self.find_matches(word_before_cursor, formats, meta='table format')
+
+    def get_view_matches(self, suggestion, word_before_cursor, alias=False):
+        self.find_matches(word_before_cursor,
+                          self.dbmetadata['views'].keys(), meta='view')
+
+    def get_alias_matches(self, suggestion, word_before_cursor):
+        aliases = suggestion.aliases
+        return self.find_matches(word_before_cursor, aliases,
+                                 meta='table alias')
+
+    # TODO: remove this in future
+    def get_database_matches(self, _, word_before_cursor):
+        return []
+
+    def get_keyword_matches(self, suggestion, word_before_cursor):
+        keywords = self.keywords_tree.keys()
+        # Get well known following keywords for the last token. If any, narrow
+        # candidates to this list.
+        next_keywords = self.keywords_tree.get(suggestion.last_token, [])
+        if next_keywords:
+            keywords = next_keywords
+
+        casing = self.keyword_casing
+        if casing == 'auto':
+            if word_before_cursor and word_before_cursor[-1].islower():
+                casing = 'lower'
+            else:
+                casing = 'upper'
+
+        if casing == 'upper':
+            keywords = [k.upper() for k in keywords]
+        else:
+            keywords = [k.lower() for k in keywords]
+
+        return self.find_matches(word_before_cursor, keywords,
+                                 mode='strict', meta='keyword')
+
+    def get_path_matches(self, _, word_before_cursor):
+        return []
+
+    def get_special_matches(self, _, word_before_cursor):
+        return []
+
+    def get_datatype_matches(self, suggestion, word_before_cursor):
+        return self.find_matches(word_before_cursor, self.datatypes,
+                                 mode='strict', meta='datatype')
+
+    def get_namedquery_matches(self, _, word_before_cursor):
+        return []
+
+    def get_procedure_matches(self, suggestion, word_before_cursor):
+        return self.find_matches(word_before_cursor, self.procedures,
+                                 mode='strict', meta='procedure')
+
     suggestion_matchers = {
+        FromClauseItem: get_from_clause_item_matches,
+        JoinCondition: get_join_condition_matches,
+        Join: get_join_matches,
         Column: get_column_matches,
+        Function: get_function_matches,
+        Schema: get_schema_matches,
+        Table: get_table_matches,
+        TableFormat: get_table_formats,
+        View: get_view_matches,
+        Alias: get_alias_matches,
+        Database: get_database_matches,
+        Keyword: get_keyword_matches,
+        Special: get_special_matches,
+        Datatype: get_datatype_matches,
+        NamedQuery: get_namedquery_matches,
+        Path: get_path_matches,
+        Procedure: get_procedure_matches
     }

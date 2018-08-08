@@ -67,7 +67,7 @@ def cli(servers, port, user, password, credentials, kerberos, query_timeout):
     sql_completer = VoltCompleter()
 
     session = PromptSession(
-        lexer=PygmentsLexer(SqlLexer), completer=sql_completer, style=style)
+        lexer=PygmentsLexer(SqlLexer), completer=sql_completer, style=style, multiline=True)
 
     while True:
         try:

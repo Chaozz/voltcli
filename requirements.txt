@@ -1,0 +1,5 @@
+click==6.7
+prompt_toolkit==2.0.4
+cli_helpers==1.0.2
+Pygments==2.2.0
+sqlparse==0.2.4
