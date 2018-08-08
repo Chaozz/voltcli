@@ -2,9 +2,12 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import Style
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.key_binding import KeyBindings
 from pygments.lexers.sql import SqlLexer
 
 from subprocess import call
@@ -43,8 +46,54 @@ style = Style.from_dict({
 })
 
 
-class PGCli(object):
-    pass
+class VoltCli(object):
+    def __init__(self, completer):
+        self.completer = completer
+        self.multiline = True
+
+    def create_key_bindings(self):
+        bindings = KeyBindings()
+
+        @bindings.add('f2')
+        def _(event):
+            self.completer.smart_completion = not self.completer.smart_completion
+
+        @bindings.add('f3')
+        def _(event):
+            self.multiline = not self.multiline
+
+        return bindings
+
+
+    def bottom_toolbar(self):
+        toolbar_result = []
+        if self.completer.smart_completion:
+            toolbar_result.append('[F2] <b><style bg="ansired">Smart Completion:</style></b> ON  ')
+        else:
+            toolbar_result.append('[F2] <b><style bg="ansired">Smart Completion:</style></b> OFF  ')
+
+        if self.multiline:
+            toolbar_result.append('[F3] <b><style bg="ansired">Multiline:</style></b> ON  ')
+        else:
+            toolbar_result.append('[F3] <b><style bg="ansired">Multiline:</style></b> OFF  ')
+
+        return HTML(''.join(toolbar_result))
+
+    def run_cli(self, servers, port, user, password, credentials, kerberos, query_timeout):
+        session = PromptSession(
+            lexer=PygmentsLexer(SqlLexer), completer=self.completer, style=style,
+            auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.bottom_toolbar,
+            key_bindings=self.create_key_bindings())
+        while True:
+            try:
+                sql_cmd = session.prompt('> ', multiline=self.multiline)
+            except KeyboardInterrupt:
+                break
+            except EOFError:
+                break
+            else:
+                call("echo \"{sql_cmd}\" | sqlcmd".format(sql_cmd=sql_cmd), shell=True)
+        print('GoodBye!')
 
 
 @click.command()
@@ -64,21 +113,24 @@ class PGCli(object):
 @click.option('-t', '--query-timeout', default=10000,
               help='Read-only queries that take longer than this number of milliseconds will abort.')
 def cli(servers, port, user, password, credentials, kerberos, query_timeout):
-    sql_completer = VoltCompleter()
-
-    session = PromptSession(
-        lexer=PygmentsLexer(SqlLexer), completer=sql_completer, style=style, multiline=True)
-
-    while True:
-        try:
-            sql_cmd = session.prompt('> ')
-        except KeyboardInterrupt:
-            break
-        except EOFError:
-            break
-        else:
-            call("echo \"{sql_cmd}\" | sqlcmd".format(sql_cmd=sql_cmd), shell=True)
-    print('GoodBye!')
+    volt_cli = VoltCli(VoltCompleter())
+    volt_cli.run_cli(servers, port, user, password, credentials, kerberos, query_timeout)
+    # sql_completer = VoltCompleter()
+    #
+    # session = PromptSession(
+    #     lexer=PygmentsLexer(SqlLexer), completer=sql_completer, style=style, multiline=True,
+    #     auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=bottom_toolbar)
+    #
+    # while True:
+    #     try:
+    #         sql_cmd = session.prompt('> ')
+    #     except KeyboardInterrupt:
+    #         break
+    #     except EOFError:
+    #         break
+    #     else:
+    #         call("echo \"{sql_cmd}\" | sqlcmd".format(sql_cmd=sql_cmd), shell=True)
+    # print('GoodBye!')
 
 
 if __name__ == '__main__':

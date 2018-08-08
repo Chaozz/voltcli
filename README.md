@@ -17,6 +17,5 @@ Run
 In project root folder, simply run:
 ```
 $ python voltcli/voltcli.py
-
 ```
  

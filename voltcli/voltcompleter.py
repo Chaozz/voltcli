@@ -63,8 +63,9 @@ class VoltCompleter(Completer):
         self.name_pattern = re.compile(r"^[_a-z][_a-z0-9\$]*$")
         self.databases = []
         # TODO: verify the structure and usage
+        # metadata should be updated in real-time
         self.dbmetadata = {'tables': {'test_table1': ['column1', 'column2'], 'test_table2': ['column3', 'column4']},
-                           'views': {}, 'functions': {},
+                           'views': {}, 'functions': {}, 'procedures': {},
                            'datatypes': {}}
         self.casing = {}
 
