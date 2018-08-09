@@ -60,9 +60,8 @@ class VoltCompleter(Completer):
         self.databases = []
         # TODO: verify the structure and usage
         # metadata should be updated in real-time
-        self.dbmetadata = {'tables': {'test_table1': ['column1', 'column2'], 'test_table2': ['column3', 'column4']},
-                           'views': [], 'functions': [], 'procedures': [],
-                           'datatypes': {}}
+        self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
+                           'datatypes': []}
         self.casing = {}
 
         self.all_completions = set(self.keywords + self.functions)
@@ -262,7 +261,7 @@ class VoltCompleter(Completer):
                                           column_list]), meta='column')
         return self.find_matches(word_before_cursor,
                                  [c for column_list in
-                                  [self.dbmetadata['tables'].get(table.name, []) for table in tables] for c in
+                                  [self.dbmetadata['tables'].get(table.name.upper(), []) for table in tables] for c in
                                   column_list],
                                  meta='column')
 

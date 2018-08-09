@@ -38,7 +38,8 @@ class VoltCli(object):
 
         self.completer = VoltCompleter()
         self.refresher = VoltRefresher()
-        self.executer = VoltExecuter()
+        self.executer = VoltExecuter(self.server, self.port, self.user, self.password,
+                                     self.query_timeout)
         self.multiline = True
         self.auto_refresh = True
 
