@@ -49,14 +49,44 @@ class VoltExecuter(object):
         return []
 
     def get_function_catalog(self):
-        # return a list of function names
-        return []
+        if not self.check_client_alive():
+            return []
+        proc = VoltProcedure(self.client, "@SystemCatalog", [FastSerializer.VOLTTYPE_STRING])
+        response = proc.call(["functions"])
+        if response.status == -1:
+            self.init_client()
+            return []
+        if response.status != 1:
+            # failure
+            return []
+        table = response.tables[0]
+        if len(table.tuples) == 0:
+            # no data
+            return []
+        result = []
+        for row in table.tuples:
+            result.append(row[1])
+        return result
 
     def get_procedure_catalog(self):
-        # return a list of procedure names
-        return []
-
-
+        if not self.check_client_alive():
+            return []
+        proc = VoltProcedure(self.client, "@SystemCatalog", [FastSerializer.VOLTTYPE_STRING])
+        response = proc.call(["procedures"])
+        if response.status == -1:
+            self.init_client()
+            return []
+        if response.status != 1:
+            # failure
+            return []
+        table = response.tables[0]
+        if len(table.tuples) == 0:
+            # no data
+            return []
+        result = []
+        for row in table.tuples:
+            result.append(row[2])
+        return result
 
 ve = VoltExecuter()
 
