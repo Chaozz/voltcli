@@ -61,7 +61,7 @@ class VoltCompleter(Completer):
         # TODO: verify the structure and usage
         # metadata should be updated in real-time
         self.dbmetadata = {'tables': {'test_table1': ['column1', 'column2'], 'test_table2': ['column3', 'column4']},
-                           'views': {}, 'functions': {}, 'procedures': {},
+                           'views': [], 'functions': [], 'procedures': [],
                            'datatypes': {}}
         self.casing = {}
 
@@ -88,8 +88,8 @@ class VoltCompleter(Completer):
 
     def reset_completions(self):
         self.databases = []
-        self.dbmetadata = {'tables': {}, 'views': {}, 'functions': {},
-                           'datatypes': {}}
+        self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
+                           'datatypes': []}
         self.all_completions = set(self.keywords + self.functions)
 
     def case(self, word):
