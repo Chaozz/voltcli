@@ -1,17 +1,22 @@
 from collections import defaultdict
 
 from voltdbclient import *
-import time
 
 
 class VoltExecuter(object):
-    def __init__(self):
+    def __init__(self, server, port, user, password, query_timeout):
         self.client = None
+        self.parameters = {"host": server, "port": port, "procedure_timeout": query_timeout}
+        if user:
+            self.parameters["username"] = user
+        if password:
+            self.parameters["password"] = password
+
         self.init_client()
 
     def init_client(self):
         try:
-            self.client = FastSerializer("localhost", 21212)
+            self.client = FastSerializer(**self.parameters)
         except:
             self.client = None
 
@@ -88,10 +93,3 @@ class VoltExecuter(object):
             result.append(row[2])
         return result
 
-ve = VoltExecuter()
-
-ve.get_table_catalog()
-# time.sleep(5)
-# ve.get_table_catalog()
-# time.sleep(5)
-# ve.get_table_catalog()

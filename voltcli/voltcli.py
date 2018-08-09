@@ -11,6 +11,8 @@ from pygments.lexers.sql import SqlLexer
 
 from subprocess import call
 from voltcompleter import VoltCompleter
+from voltrefresher import VoltRefresher
+from voltexecuter import VoltExecuter
 
 import click
 
@@ -25,9 +27,21 @@ style = Style.from_dict({
 
 
 class VoltCli(object):
-    def __init__(self, completer):
-        self.completer = completer
+    def __init__(self, server, port, user, password, credentials, kerberos, query_timeout):
+        self.server = server
+        self.port = port
+        self.user = user
+        self.password = password
+        self.credentials = credentials
+        self.kerberos = kerberos
+        self.query_timeout = query_timeout
+
+        self.completer = VoltCompleter()
+        self.refresher = VoltRefresher()
+        self.executer = VoltExecuter(self.server, self.port, self.user, self.password,
+                                     self.query_timeout)
         self.multiline = True
+        self.auto_refresh = True
 
     def create_key_bindings(self):
         bindings = KeyBindings()
@@ -43,7 +57,7 @@ class VoltCli(object):
 
         @bindings.add('f4')
         def _(event):
-            self.completer.update_functions(["HelloWol", 'tTest'])
+            self.auto_refresh = not self.auto_refresh
 
         return bindings
 
@@ -62,31 +76,29 @@ class VoltCli(object):
         else:
             toolbar_result.append(
                 '<style bg="ansiyellow">[F3]</style> <b><style bg="ansired">Multiline:</style></b> OFF  ')
+        if self.auto_refresh:
+            toolbar_result.append(
+                '<style bg="ansiyellow">[F4]</style> <b><style bg="ansigreen">Auto Refresh:</style></b> ON  ')
+        else:
+            toolbar_result.append(
+                '<style bg="ansiyellow">[F4]</style> <b><style bg="ansired">Auto Refresh:</style></b> OFF  ')
 
         return HTML(''.join(toolbar_result))
 
-    def refresh_completions(self, history=None, persist_priorities='all'):
-        """ Refresh outdated completions
-
-        :param history: A prompt_toolkit.history.FileHistory object. Used to
-                        load keyword and identifier preferences
-
-        :param persist_priorities: 'all' or 'keywords'
-        """
-
-        # callback = functools.partial(self._on_completions_refreshed,
-        #                              persist_priorities=persist_priorities)
-        # self.completion_refresher.refresh(self.pgexecute, self.pgspecial,
-        #     callback, history=history, settings=self.settings)
-        # return [(None, None, None,
-        #         'Auto-completion refresh started in the background.')]
-        pass
-
-    def run_cli(self, server, port, user, password, credentials, kerberos, query_timeout):
+    def run_cli(self):
+        # get catalog data before start
+        self.refresher.refresh(self.executer, self.completer, [])
         session = PromptSession(
             lexer=PygmentsLexer(SqlLexer), completer=self.completer, style=style,
             auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.bottom_toolbar,
             key_bindings=self.create_key_bindings(), multiline=self.multiline)
+        option_str = "--servers={server} --port={port_number}{user}{password}{credentials}{kerberos} --query-timeout={number_of_milliseconds}".format(
+            server=self.server, port_number=self.port,
+            user="--user=" + self.user if self.user else "",
+            password="--password=" + self.password if self.password else "",
+            credentials="--credentials=" + self.credentials if self.credentials else "",
+            kerberos="--kerberos=" + self.kerberos if self.kerberos else "",
+            number_of_milliseconds=self.query_timeout)
         while True:
             try:
                 sql_cmd = session.prompt('> ')
@@ -95,7 +107,16 @@ class VoltCli(object):
             except EOFError:
                 break
             else:
-                call("echo \"{sql_cmd}\" | sqlcmd".format(sql_cmd=sql_cmd), shell=True)
+                if sql_cmd.lower() == "update":
+                    # use "update" command to force a fresh
+                    self.refresher.refresh(self.executer, self.completer, [])
+                    continue
+                call(
+                    "echo \"{sql_cmd}\" | sqlcmd {options}".format(
+                        sql_cmd=sql_cmd, options=option_str),
+                    shell=True)
+                if self.auto_refresh:
+                    self.refresher.refresh(self.executer, self.completer, [])
         print('GoodBye!')
 
 
@@ -116,8 +137,8 @@ class VoltCli(object):
 @click.option('-t', '--query-timeout', default=10000,
               help='Read-only queries that take longer than this number of milliseconds will abort.')
 def cli(server, port, user, password, credentials, kerberos, query_timeout):
-    volt_cli = VoltCli(VoltCompleter())
-    volt_cli.run_cli(server, port, user, password, credentials, kerberos, query_timeout)
+    volt_cli = VoltCli(server, port, user, password, credentials, kerberos, query_timeout)
+    volt_cli.run_cli()
 
 
 if __name__ == '__main__':

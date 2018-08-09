@@ -60,9 +60,8 @@ class VoltCompleter(Completer):
         self.databases = []
         # TODO: verify the structure and usage
         # metadata should be updated in real-time
-        self.dbmetadata = {'tables': {'test_table1': ['column1', 'column2'], 'test_table2': ['column3', 'column4']},
-                           'views': [], 'functions': [], 'procedures': [],
-                           'datatypes': {}}
+        self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
+                           'datatypes': []}
         self.casing = {}
 
         self.all_completions = set(self.keywords + self.functions)
@@ -258,11 +257,11 @@ class VoltCompleter(Completer):
         # TODO: make sure fit the real dbmetadata structure
         if not tables or len(tables) == 0:
             return self.find_matches(word_before_cursor,
-                                     [c for column_list in self.dbmetadata['tables'].values() for c in column_list],
-                                     meta='column')
+                                     set([c for column_list in self.dbmetadata['tables'].values() for c in
+                                          column_list]), meta='column')
         return self.find_matches(word_before_cursor,
                                  [c for column_list in
-                                  [self.dbmetadata['tables'].get(table.name, []) for table in tables] for c in
+                                  [self.dbmetadata['tables'].get(table.name.upper(), []) for table in tables] for c in
                                   column_list],
                                  meta='column')
 
@@ -291,7 +290,7 @@ class VoltCompleter(Completer):
                 self.find_matches(word_before_cursor,
                                   self.dbmetadata['tables'].keys(), meta='table')
                 + self.find_matches(word_before_cursor,
-                                    self.dbmetadata['views'].keys(), meta='view')
+                                    self.dbmetadata['views'], meta='view')
                 + self.find_matches(word_before_cursor, self.functions, meta='function')
                 + self.find_matches(word_before_cursor, self.dbmetadata['functions'],
                                     meta='function')
@@ -307,7 +306,7 @@ class VoltCompleter(Completer):
 
     def get_view_matches(self, suggestion, word_before_cursor, alias=False):
         self.find_matches(word_before_cursor,
-                          self.dbmetadata['views'].keys(), meta='view')
+                          self.dbmetadata['views'], meta='view')
 
     def get_alias_matches(self, suggestion, word_before_cursor):
         aliases = suggestion.aliases
