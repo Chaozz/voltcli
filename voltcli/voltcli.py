@@ -3,7 +3,6 @@ from __future__ import print_function
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
@@ -16,27 +15,6 @@ from voltcompleter import VoltCompleter
 import click
 
 click.disable_unicode_literals_warning = True
-
-sql_completer = WordCompleter([
-    'abort', 'action', 'add', 'after', 'all', 'alter', 'analyze', 'and',
-    'as', 'asc', 'attach', 'autoincrement', 'before', 'begin', 'between',
-    'by', 'cascade', 'case', 'cast', 'check', 'collate', 'column',
-    'commit', 'conflict', 'constraint', 'create', 'cross', 'current_date',
-    'current_time', 'current_timestamp', 'database', 'default',
-    'deferrable', 'deferred', 'delete', 'desc', 'detach', 'distinct',
-    'drop', 'each', 'else', 'end', 'escape', 'except', 'exclusive',
-    'exists', 'explain', 'fail', 'for', 'foreign', 'from', 'full', 'glob',
-    'group', 'having', 'if', 'ignore', 'immediate', 'in', 'index',
-    'indexed', 'initially', 'inner', 'insert', 'instead', 'intersect',
-    'into', 'is', 'isnull', 'join', 'key', 'left', 'like', 'limit',
-    'match', 'natural', 'no', 'not', 'notnull', 'null', 'of', 'offset',
-    'on', 'or', 'order', 'outer', 'plan', 'pragma', 'primary', 'query',
-    'raise', 'recursive', 'references', 'regexp', 'reindex', 'release',
-    'rename', 'replace', 'restrict', 'right', 'rollback', 'row',
-    'savepoint', 'select', 'set', 'table', 'temp', 'temporary', 'then',
-    'to', 'transaction', 'trigger', 'union', 'unique', 'update', 'using',
-    'vacuum', 'values', 'view', 'virtual', 'when', 'where', 'with',
-    'without'], ignore_case=True)
 
 style = Style.from_dict({
     'completion-menu.completion': 'bg:#008888 #ffffff',
@@ -61,32 +39,57 @@ class VoltCli(object):
         @bindings.add('f3')
         def _(event):
             self.multiline = not self.multiline
+            event.app.current_buffer.multiline = ~event.app.current_buffer.multiline
+
+        @bindings.add('f4')
+        def _(event):
+            self.completer.update_functions(["HelloWol", 'tTest'])
 
         return bindings
-
 
     def bottom_toolbar(self):
         toolbar_result = []
         if self.completer.smart_completion:
-            toolbar_result.append('[F2] <b><style bg="ansired">Smart Completion:</style></b> ON  ')
+            toolbar_result.append(
+                '<style bg="ansiyellow">[F2]</style> <b><style bg="ansigreen">Smart Completion:</style></b> ON  ')
         else:
-            toolbar_result.append('[F2] <b><style bg="ansired">Smart Completion:</style></b> OFF  ')
+            toolbar_result.append(
+                '<style bg="ansiyellow">[F2]</style> <b><style bg="ansired">Smart Completion:</style></b> OFF  ')
 
         if self.multiline:
-            toolbar_result.append('[F3] <b><style bg="ansired">Multiline:</style></b> ON  ')
+            toolbar_result.append(
+                '<style bg="ansiyellow">[F3]</style> <b><style bg="ansigreen">Multiline:</style></b> ON  ')
         else:
-            toolbar_result.append('[F3] <b><style bg="ansired">Multiline:</style></b> OFF  ')
+            toolbar_result.append(
+                '<style bg="ansiyellow">[F3]</style> <b><style bg="ansired">Multiline:</style></b> OFF  ')
 
         return HTML(''.join(toolbar_result))
+
+    def refresh_completions(self, history=None, persist_priorities='all'):
+        """ Refresh outdated completions
+
+        :param history: A prompt_toolkit.history.FileHistory object. Used to
+                        load keyword and identifier preferences
+
+        :param persist_priorities: 'all' or 'keywords'
+        """
+
+        # callback = functools.partial(self._on_completions_refreshed,
+        #                              persist_priorities=persist_priorities)
+        # self.completion_refresher.refresh(self.pgexecute, self.pgspecial,
+        #     callback, history=history, settings=self.settings)
+        # return [(None, None, None,
+        #         'Auto-completion refresh started in the background.')]
+        pass
 
     def run_cli(self, servers, port, user, password, credentials, kerberos, query_timeout):
         session = PromptSession(
             lexer=PygmentsLexer(SqlLexer), completer=self.completer, style=style,
             auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.bottom_toolbar,
-            key_bindings=self.create_key_bindings())
+            key_bindings=self.create_key_bindings(), multiline=self.multiline)
         while True:
             try:
-                sql_cmd = session.prompt('> ', multiline=self.multiline)
+                sql_cmd = session.prompt('> ')
             except KeyboardInterrupt:
                 break
             except EOFError:
@@ -115,22 +118,6 @@ class VoltCli(object):
 def cli(servers, port, user, password, credentials, kerberos, query_timeout):
     volt_cli = VoltCli(VoltCompleter())
     volt_cli.run_cli(servers, port, user, password, credentials, kerberos, query_timeout)
-    # sql_completer = VoltCompleter()
-    #
-    # session = PromptSession(
-    #     lexer=PygmentsLexer(SqlLexer), completer=sql_completer, style=style, multiline=True,
-    #     auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=bottom_toolbar)
-    #
-    # while True:
-    #     try:
-    #         sql_cmd = session.prompt('> ')
-    #     except KeyboardInterrupt:
-    #         break
-    #     except EOFError:
-    #         break
-    #     else:
-    #         call("echo \"{sql_cmd}\" | sqlcmd".format(sql_cmd=sql_cmd), shell=True)
-    # print('GoodBye!')
 
 
 if __name__ == '__main__':

@@ -36,14 +36,10 @@ def generate_alias(tbl):
                    [l for l, prev in zip(tbl, '_' + tbl) if prev == '_' and l != '_'])
 
 
-def Candidate(
-        completion, prio=None, meta=None, synonyms=None, prio2=None,
-        display=None
-):
-    return _Candidate(
-        completion, prio, meta, synonyms or [completion], prio2,
-                                display or completion
-    )
+def Candidate(completion, prio=None, meta=None, synonyms=None, prio2=None,
+              display=None):
+    return _Candidate(completion, prio, meta, synonyms or [completion], prio2,
+                      display or completion)
 
 
 class VoltCompleter(Completer):
@@ -281,8 +277,10 @@ class VoltCompleter(Completer):
         return self.get_column_matches(suggestion, word_before_cursor)
 
     def get_function_matches(self, suggestion, word_before_cursor, alias=False):
-        return self.find_matches(word_before_cursor, self.functions, mode='strict',
-                                 meta='function')
+        return (self.find_matches(word_before_cursor, self.functions, mode='strict',
+                                  meta='function')
+                + self.find_matches(word_before_cursor, self.dbmetadata['functions'], mode='strict',
+                                    meta='function'))
 
     # volt don't have this
     def get_schema_matches(self, suggestion, word_before_cursor):
@@ -295,6 +293,8 @@ class VoltCompleter(Completer):
                 + self.find_matches(word_before_cursor,
                                     self.dbmetadata['views'].keys(), meta='view')
                 + self.find_matches(word_before_cursor, self.functions, meta='function')
+                + self.find_matches(word_before_cursor, self.dbmetadata['functions'],
+                                    meta='function')
         )
 
     def get_table_matches(self, suggestion, word_before_cursor, alias=False):
@@ -355,8 +355,11 @@ class VoltCompleter(Completer):
         return []
 
     def get_procedure_matches(self, suggestion, word_before_cursor):
-        return self.find_matches(word_before_cursor, self.procedures,
-                                 mode='strict', meta='procedure')
+        return (self.find_matches(word_before_cursor, self.procedures,
+                                  mode='strict', meta='procedure')
+                + self.find_matches(word_before_cursor, self.dbmetadata['procedures'],
+                                    meta='procedure')
+                )
 
     suggestion_matchers = {
         FromClauseItem: get_from_clause_item_matches,
@@ -377,3 +380,15 @@ class VoltCompleter(Completer):
         Path: get_path_matches,
         Procedure: get_procedure_matches
     }
+
+    def update_tables(self, tables):
+        self.dbmetadata['tables'] = tables
+
+    def update_views(self, views):
+        self.dbmetadata['views'] = views
+
+    def update_functions(self, functions):
+        self.dbmetadata['functions'] = functions
+
+    def update_procedures(self, procedures):
+        self.dbmetadata['procedures'] = procedures
