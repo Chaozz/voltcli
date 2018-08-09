@@ -82,7 +82,7 @@ class VoltCli(object):
         #         'Auto-completion refresh started in the background.')]
         pass
 
-    def run_cli(self, servers, port, user, password, credentials, kerberos, query_timeout):
+    def run_cli(self, server, port, user, password, credentials, kerberos, query_timeout):
         session = PromptSession(
             lexer=PygmentsLexer(SqlLexer), completer=self.completer, style=style,
             auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.bottom_toolbar,
@@ -100,8 +100,8 @@ class VoltCli(object):
 
 
 @click.command()
-@click.option('-s', '--servers', default='localhost',
-              help='List of servers to connect to (comma-separated).')
+@click.option('-s', '--server', default='localhost',
+              help='VoltDB server to connect to.')
 @click.option('-p', '--port', default=21212,
               help='Client port to connect to on cluster nodes.')
 @click.option('-u', '--user', default='',
@@ -115,9 +115,9 @@ class VoltCli(object):
                    'file entry name')
 @click.option('-t', '--query-timeout', default=10000,
               help='Read-only queries that take longer than this number of milliseconds will abort.')
-def cli(servers, port, user, password, credentials, kerberos, query_timeout):
+def cli(server, port, user, password, credentials, kerberos, query_timeout):
     volt_cli = VoltCli(VoltCompleter())
-    volt_cli.run_cli(servers, port, user, password, credentials, kerberos, query_timeout)
+    volt_cli.run_cli(server, port, user, password, credentials, kerberos, query_timeout)
 
 
 if __name__ == '__main__':
