@@ -97,6 +97,7 @@
         "LEVEL": [],
         "LIKE": [],
         "LIMIT": [],
+        "LOAD": ["CLASSES"],
         "LOCK": [],
         "LONG": [],
         "MATERIALIZED VIEW": [],
