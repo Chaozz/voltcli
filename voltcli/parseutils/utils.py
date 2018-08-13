@@ -71,10 +71,6 @@ def find_prev_keyword(sql, n_skip=0):
     return None, ''
 
 
-# Postgresql dollar quote signs look like `$$` or `$tag$`
-dollar_quote_regex = re.compile(r'^\$[^$]*\$$')
-
-
 def is_open_quote(sql):
     """Returns true if the query contains an unclosed quote"""
 

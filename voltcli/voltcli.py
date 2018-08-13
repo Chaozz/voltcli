@@ -1,5 +1,4 @@
-from __future__ import unicode_literals
-from __future__ import print_function
+from __future__ import unicode_literals, print_function
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -8,13 +7,12 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from pygments.lexers.sql import SqlLexer
-
 from subprocess import call
+import click
+
 from voltcompleter import VoltCompleter
 from voltrefresher import VoltRefresher
 from voltexecuter import VoltExecuter
-
-import click
 
 click.disable_unicode_literals_warning = True
 
@@ -65,25 +63,25 @@ class VoltCli(object):
         toolbar_result = []
         if self.completer.smart_completion:
             toolbar_result.append(
-                '<style bg="ansiyellow">[F2]</style> <b><style bg="ansigreen">Smart Completion:</style></b> ON  ')
+                '<style bg="ansiyellow">[F2]</style> <b><style bg="ansigreen">Smart Completion:</style></b> ON')
         else:
             toolbar_result.append(
-                '<style bg="ansiyellow">[F2]</style> <b><style bg="ansired">Smart Completion:</style></b> OFF  ')
+                '<style bg="ansiyellow">[F2]</style> <b><style bg="ansired">Smart Completion:</style></b> OFF')
 
         if self.multiline:
             toolbar_result.append(
-                '<style bg="ansiyellow">[F3]</style> <b><style bg="ansigreen">Multiline:</style></b> ON  ')
+                '<style bg="ansiyellow">[F3]</style> <b><style bg="ansigreen">Multiline:</style></b> ON')
         else:
             toolbar_result.append(
-                '<style bg="ansiyellow">[F3]</style> <b><style bg="ansired">Multiline:</style></b> OFF  ')
+                '<style bg="ansiyellow">[F3]</style> <b><style bg="ansired">Multiline:</style></b> OFF')
         if self.auto_refresh:
             toolbar_result.append(
-                '<style bg="ansiyellow">[F4]</style> <b><style bg="ansigreen">Auto Refresh:</style></b> ON  ')
+                '<style bg="ansiyellow">[F4]</style> <b><style bg="ansigreen">Auto Refresh:</style></b> ON')
         else:
             toolbar_result.append(
-                '<style bg="ansiyellow">[F4]</style> <b><style bg="ansired">Auto Refresh:</style></b> OFF  ')
+                '<style bg="ansiyellow">[F4]</style> <b><style bg="ansired">Auto Refresh:</style></b> OFF')
 
-        return HTML(''.join(toolbar_result))
+        return HTML('  '.join(toolbar_result))
 
     def run_cli(self):
         # get catalog data before start

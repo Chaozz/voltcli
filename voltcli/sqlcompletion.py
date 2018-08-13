@@ -17,7 +17,6 @@ if PY3:
 else:
     string_types = basestring
 
-Special = namedtuple('Special', [])
 Database = namedtuple('Database', [])
 Schema = namedtuple('Schema', ['quoted'])
 Schema.__new__.__defaults__ = (False,)
@@ -26,7 +25,6 @@ Schema.__new__.__defaults__ = (False,)
 # used to ensure that the alias we suggest is unique
 FromClauseItem = namedtuple('FromClauseItem', 'schema table_refs local_tables')
 Table = namedtuple('Table', ['schema', 'table_refs', 'local_tables'])
-TableFormat = namedtuple('TableFormat', [])
 View = namedtuple('View', ['schema', 'table_refs'])
 # JoinConditions are suggested after ON, e.g. 'foo.barid = bar.barid'
 JoinCondition = namedtuple('JoinCondition', ['table_refs', 'parent'])
@@ -48,11 +46,9 @@ Column.__new__.__defaults__ = (None, None, tuple(), False, None)
 
 Keyword = namedtuple('Keyword', ['last_token'])
 Keyword.__new__.__defaults__ = (None,)
-NamedQuery = namedtuple('NamedQuery', [])
 Datatype = namedtuple('Datatype', ['schema'])
 Alias = namedtuple('Alias', ['aliases'])
 
-Path = namedtuple('Path', [])
 Procedure = namedtuple('Procedure', [])
 
 
@@ -61,8 +57,6 @@ class SqlStatement(object):
         self.identifier = None
         self.word_before_cursor = word_before_cursor = last_word(
             text_before_cursor, include='many_punctuations')
-        full_text = _strip_named_query(full_text)
-        text_before_cursor = _strip_named_query(text_before_cursor)
 
         full_text, text_before_cursor, self.local_tables = \
             isolate_query_ctes(full_text, text_before_cursor)
@@ -137,9 +131,6 @@ def suggest_type(full_text, text_before_cursor):
     A scope for a column category will be a list of tables.
     """
 
-    if full_text.startswith('\\i '):
-        return (Path(),)
-
     # This is a temporary hack; the exception handling
     # here should be removed once sqlparse has been fixed
     try:
@@ -148,21 +139,6 @@ def suggest_type(full_text, text_before_cursor):
         return []
 
     return suggest_based_on_last_token(stmt.last_token, stmt)
-
-
-named_query_regex = re.compile(r'^\s*\\ns\s+[A-z0-9\-_]+\s+')
-
-
-def _strip_named_query(txt):
-    """
-    This will strip "save named query" command in the beginning of the line:
-    '\ns zzz SELECT * FROM abc'   -> 'SELECT * FROM abc'
-    '  \ns zzz SELECT * FROM abc' -> 'SELECT * FROM abc'
-    """
-
-    if named_query_regex.match(txt):
-        txt = named_query_regex.sub('', txt)
-    return txt
 
 
 function_body_pattern = re.compile(r'(\$.*?\$)([\s\S]*?)\1', re.M)
@@ -223,15 +199,6 @@ def _split_multiple_statements(full_text, text_before_cursor, parsed):
     return full_text, text_before_cursor, statement
 
 
-SPECIALS_SUGGESTION = {
-    'dT': Datatype,
-    'df': Function,
-    'dt': Table,
-    'dv': View,
-    'sf': Function,
-}
-
-
 def suggest_based_on_last_token(token, stmt):
     if isinstance(token, string_types):
         token_v = token.lower()
@@ -272,7 +239,7 @@ def suggest_based_on_last_token(token, stmt):
         token_v = token.value.lower()
 
     if not token:
-        return (Keyword(), Special())
+        return (Keyword(),)
     elif token_v.endswith('('):
         p = sqlparse.parse(stmt.text_before_cursor)[0]
 

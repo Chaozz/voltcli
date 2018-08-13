@@ -5,17 +5,17 @@ import re
 from collections import namedtuple
 from itertools import chain
 
-from cli_helpers.tabular_output import TabularOutputFormatter
 from prompt_toolkit.completion import Completer, Completion
 
 from parseutils.utils import last_word
 from prioritization import PrevalenceCounter
 from sqlcompletion import suggest_type, Column, FromClauseItem, JoinCondition, Join, Function, Schema, Table, \
-    TableFormat, View, Alias, Database, Keyword, Special, Datatype, NamedQuery, Path, Procedure
+    View, Alias, Database, Keyword, Datatype, Procedure
 from voltliterals.literals import get_literals
 
 Match = namedtuple('Match', ['completion', 'priority'])
 
+# TODO
 _Candidate = namedtuple(
     'Candidate', 'completion prio meta synonyms prio2 display'
 )
@@ -167,7 +167,7 @@ class VoltCompleter(Completer):
 
         matches = []
         for cand in collection:
-            # TODO
+            # TODO: verify the usage of Candidate
             if isinstance(cand, _Candidate):
                 item, prio, display_meta, synonyms, prio2, display = cand
                 if display_meta is None:
@@ -247,10 +247,6 @@ class VoltCompleter(Completer):
 
         return [m.completion for m in matches]
 
-    def make_candidate(self, name):
-        synonyms = (name, generate_alias(self.case(name)))
-        return Candidate(self.case(name), 0, 'column', synonyms)
-
     def get_column_matches(self, suggestion, word_before_cursor):
         tables = suggestion.table_refs
 
@@ -300,10 +296,6 @@ class VoltCompleter(Completer):
         self.find_matches(word_before_cursor,
                           self.dbmetadata['tables'].keys(), meta='table')
 
-    def get_table_formats(self, _, word_before_cursor):
-        formats = TabularOutputFormatter().supported_formats
-        return self.find_matches(word_before_cursor, formats, meta='table format')
-
     def get_view_matches(self, suggestion, word_before_cursor, alias=False):
         self.find_matches(word_before_cursor,
                           self.dbmetadata['views'], meta='view')
@@ -340,18 +332,9 @@ class VoltCompleter(Completer):
         return self.find_matches(word_before_cursor, keywords,
                                  mode='strict', meta='keyword')
 
-    def get_path_matches(self, _, word_before_cursor):
-        return []
-
-    def get_special_matches(self, _, word_before_cursor):
-        return []
-
     def get_datatype_matches(self, suggestion, word_before_cursor):
         return self.find_matches(word_before_cursor, self.datatypes,
                                  mode='strict', meta='datatype')
-
-    def get_namedquery_matches(self, _, word_before_cursor):
-        return []
 
     def get_procedure_matches(self, suggestion, word_before_cursor):
         return (self.find_matches(word_before_cursor, self.procedures,
@@ -368,15 +351,11 @@ class VoltCompleter(Completer):
         Function: get_function_matches,
         Schema: get_schema_matches,
         Table: get_table_matches,
-        TableFormat: get_table_formats,
         View: get_view_matches,
         Alias: get_alias_matches,
         Database: get_database_matches,
         Keyword: get_keyword_matches,
-        Special: get_special_matches,
         Datatype: get_datatype_matches,
-        NamedQuery: get_namedquery_matches,
-        Path: get_path_matches,
         Procedure: get_procedure_matches
     }
 

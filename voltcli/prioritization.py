@@ -18,7 +18,11 @@ keywords = get_literals('keywords')
 keyword_regexs = dict((kw, _compile_regex(kw)) for kw in keywords)
 
 
+# TODO: haven't enable this feature yet
 class PrevalenceCounter(object):
+    """
+    Allow Completer to learn user's preferred keywords from history
+    """
     def __init__(self):
         self.keyword_counts = defaultdict(int)
         self.name_counts = defaultdict(int)
