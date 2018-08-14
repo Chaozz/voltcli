@@ -3,7 +3,7 @@ from collections import defaultdict
 from voltdbclient import *
 
 
-class VoltExecuter(object):
+class VoltExecutor(object):
     def __init__(self, server, port, user, password, query_timeout):
         self.client = None
         self.parameters = {"host": server, "port": port, "procedure_timeout": query_timeout}
@@ -33,8 +33,8 @@ class VoltExecuter(object):
         proc = VoltProcedure(self.client, "@SystemCatalog", [FastSerializer.VOLTTYPE_STRING])
         response = proc.call(["columns"])
         if response.status == -1:
-            # no connection try to reinitialize the client
-            self.init_client()
+            # no connection, set client to None so it can be lazy reinitialized next time we invoke
+            self.client = None
             return dict()
         if response.status != 1:
             # failure
@@ -59,7 +59,8 @@ class VoltExecuter(object):
         proc = VoltProcedure(self.client, "@SystemCatalog", [FastSerializer.VOLTTYPE_STRING])
         response = proc.call(["functions"])
         if response.status == -1:
-            self.init_client()
+            # no connection, set client to None so it can be lazy reinitialized next time we invoke
+            self.client = None
             return []
         if response.status != 1:
             # failure
@@ -79,7 +80,8 @@ class VoltExecuter(object):
         proc = VoltProcedure(self.client, "@SystemCatalog", [FastSerializer.VOLTTYPE_STRING])
         response = proc.call(["procedures"])
         if response.status == -1:
-            self.init_client()
+            # no connection, set client to None so it can be lazy reinitialized next time we invoke
+            self.client = None
             return []
         if response.status != 1:
             # failure
@@ -92,4 +94,3 @@ class VoltExecuter(object):
         for row in table.tuples:
             result.append(row[2])
         return result
-

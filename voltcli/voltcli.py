@@ -12,7 +12,7 @@ import click
 
 from voltcompleter import VoltCompleter
 from voltrefresher import VoltRefresher
-from voltexecuter import VoltExecuter
+from voltexecutor import VoltExecutor
 
 click.disable_unicode_literals_warning = True
 
@@ -36,7 +36,7 @@ class VoltCli(object):
 
         self.completer = VoltCompleter()
         self.refresher = VoltRefresher()
-        self.executer = VoltExecuter(self.server, self.port, self.user, self.password,
+        self.executor = VoltExecutor(self.server, self.port, self.user, self.password,
                                      self.query_timeout)
         self.multiline = True
         self.auto_refresh = True
@@ -85,7 +85,7 @@ class VoltCli(object):
 
     def run_cli(self):
         # get catalog data before start
-        self.refresher.refresh(self.executer, self.completer, [])
+        self.refresher.refresh(self.executor, self.completer, [])
         session = PromptSession(
             lexer=PygmentsLexer(SqlLexer), completer=self.completer, style=style,
             auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.bottom_toolbar,
@@ -107,14 +107,14 @@ class VoltCli(object):
             else:
                 if sql_cmd.lower() == "update":
                     # use "update" command to force a fresh
-                    self.refresher.refresh(self.executer, self.completer, [])
+                    self.refresher.refresh(self.executor, self.completer, [])
                     continue
                 call(
                     "echo \"{sql_cmd}\" | sqlcmd {options}".format(
                         sql_cmd=sql_cmd, options=option_str),
                     shell=True)
                 if self.auto_refresh:
-                    self.refresher.refresh(self.executer, self.completer, [])
+                    self.refresher.refresh(self.executor, self.completer, [])
         print('GoodBye!')
 
 

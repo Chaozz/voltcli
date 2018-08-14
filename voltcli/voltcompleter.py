@@ -9,37 +9,11 @@ from prompt_toolkit.completion import Completer, Completion
 
 from parseutils.utils import last_word
 from prioritization import PrevalenceCounter
-from sqlcompletion import suggest_type, Column, FromClauseItem, JoinCondition, Join, Function, Schema, Table, \
-    View, Alias, Database, Keyword, Datatype, Procedure
+from sqlcompletion import suggest_type, Column, FromClauseItem, JoinCondition, Join, Function, Table, \
+    View, Alias, Keyword, Datatype, Procedure
 from voltliterals.literals import get_literals
 
 Match = namedtuple('Match', ['completion', 'priority'])
-
-# TODO
-_Candidate = namedtuple(
-    'Candidate', 'completion prio meta synonyms prio2 display'
-)
-
-# Used to strip trailing '::some_type' from default-value expressions
-arg_default_type_strip_regex = re.compile(r'::[\w\.]+(\[\])?$')
-
-normalize_ref = lambda ref: ref if ref[0] == '"' else '"' + ref.lower() + '"'
-
-
-def generate_alias(tbl):
-    """ Generate a table alias, consisting of all upper-case letters in
-    the table name, or, if there are no upper-case letters, the first letter +
-    all letters preceded by _
-    param tbl - unescaped name of the table to alias
-    """
-    return ''.join([l for l in tbl if l.isupper()] or
-                   [l for l, prev in zip(tbl, '_' + tbl) if prev == '_' and l != '_'])
-
-
-def Candidate(completion, prio=None, meta=None, synonyms=None, prio2=None,
-              display=None):
-    return _Candidate(completion, prio, meta, synonyms or [completion], prio2,
-                      display or completion)
 
 
 class VoltCompleter(Completer):
@@ -57,11 +31,11 @@ class VoltCompleter(Completer):
         self.prioritizer = PrevalenceCounter()
         self.keyword_casing = "upper"
         self.name_pattern = re.compile(r"^[_a-z][_a-z0-9\$]*$")
-        self.databases = []
-        # TODO: verify the structure and usage
         # metadata should be updated in real-time
         self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
                            'datatypes': []}
+        # TODO: casing is not enabled yet
+        # casing should be a dict {lowercasename:PreferredCasingName}
         self.casing = {}
 
         self.all_completions = set(self.keywords + self.functions)
@@ -86,7 +60,6 @@ class VoltCompleter(Completer):
         return [self.escape_name(name) for name in names]
 
     def reset_completions(self):
-        self.databases = []
         self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
                            'datatypes': []}
         self.all_completions = set(self.keywords + self.functions)
@@ -114,8 +87,8 @@ class VoltCompleter(Completer):
         if not collection:
             return []
         priority_order = [
-            'keyword', 'function', 'procedure', 'view', 'table', 'datatype', 'database',
-            'schema', 'column', 'table alias', 'join', 'name join', 'fk join',
+            'keyword', 'function', 'procedure', 'view', 'table', 'datatype',
+            'column', 'table alias', 'join', 'name join', 'fk join',
             'table format'
         ]
         type_priority = priority_order.index(meta) if meta in priority_order else -1
@@ -167,18 +140,9 @@ class VoltCompleter(Completer):
 
         matches = []
         for cand in collection:
-            # TODO: verify the usage of Candidate
-            if isinstance(cand, _Candidate):
-                item, prio, display_meta, synonyms, prio2, display = cand
-                if display_meta is None:
-                    display_meta = meta
-                syn_matches = (_match(x) for x in synonyms)
-                # Nones need to be removed to avoid max() crashing in Python 3
-                syn_matches = [m for m in syn_matches if m]
-                sort_key = max(syn_matches) if syn_matches else None
-            else:
-                item, display_meta, prio, prio2, display = cand, meta, 0, 0, cand
-                sort_key = _match(cand)
+
+            item, display_meta, prio, prio2, display = cand, meta, 0, 0, cand
+            sort_key = _match(cand)
 
             if sort_key:
                 if display_meta and len(display_meta) > 50:
@@ -250,7 +214,6 @@ class VoltCompleter(Completer):
     def get_column_matches(self, suggestion, word_before_cursor):
         tables = suggestion.table_refs
 
-        # TODO: make sure fit the real dbmetadata structure
         if not tables or len(tables) == 0:
             return self.find_matches(word_before_cursor,
                                      set([c for column_list in self.dbmetadata['tables'].values() for c in
@@ -277,10 +240,6 @@ class VoltCompleter(Completer):
                 + self.find_matches(word_before_cursor, self.dbmetadata['functions'], mode='strict',
                                     meta='function'))
 
-    # volt don't have this
-    def get_schema_matches(self, suggestion, word_before_cursor):
-        return []
-
     def get_from_clause_item_matches(self, suggestion, word_before_cursor):
         return (
                 self.find_matches(word_before_cursor,
@@ -304,10 +263,6 @@ class VoltCompleter(Completer):
         aliases = suggestion.aliases
         return self.find_matches(word_before_cursor, aliases,
                                  meta='table alias')
-
-    # TODO: remove this in future
-    def get_database_matches(self, _, word_before_cursor):
-        return []
 
     def get_keyword_matches(self, suggestion, word_before_cursor):
         keywords = self.keywords_tree.keys()
@@ -349,11 +304,9 @@ class VoltCompleter(Completer):
         Join: get_join_matches,
         Column: get_column_matches,
         Function: get_function_matches,
-        Schema: get_schema_matches,
         Table: get_table_matches,
         View: get_view_matches,
         Alias: get_alias_matches,
-        Database: get_database_matches,
         Keyword: get_keyword_matches,
         Datatype: get_datatype_matches,
         Procedure: get_procedure_matches

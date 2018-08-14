@@ -51,7 +51,7 @@ Architecture
 |            current cursor's postion                           |
 |                                                               |
 |            +-----------------------------------------------+  |
-|            | Completer, SQLParser, refresher, Executer     |  |
+|            | Completer, SQLParser, refresher, Executor     |  |
 |            | =========================================     |  |
 |            |                                               |  |
 |            +-----------------------------------------------+  |

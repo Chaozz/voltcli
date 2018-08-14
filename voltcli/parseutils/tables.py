@@ -68,8 +68,6 @@ def extract_from_part(parsed, stop_at_punctuation=True):
 def extract_table_identifiers(token_stream, allow_functions=True):
     """yields tuples of TableReference namedtuples"""
 
-    # We need to do some massaging of the names because postgres is case-
-    # insensitive and '"Foo"' is not the same table as 'Foo' (while 'foo' is)
     def parse_identifier(item):
         name = item.get_real_name()
         schema_name = item.get_parent_name()
@@ -119,7 +117,8 @@ def extract_table_identifiers(token_stream, allow_functions=True):
 
 # extract_tables is inspired from examples in the sqlparse lib.
 def extract_tables(sql):
-    """Extract the table names from an SQL statment.
+    """
+    Extract the table names from an SQL statment.
 
     Returns a list of TableReference namedtuples
 

@@ -17,26 +17,23 @@ if PY3:
 else:
     string_types = basestring
 
-Database = namedtuple('Database', [])
-Schema = namedtuple('Schema', ['quoted'])
-Schema.__new__.__defaults__ = (False,)
 # FromClauseItem is a table/view/function used in the FROM clause
 # `table_refs` contains the list of tables/... already in the statement,
 # used to ensure that the alias we suggest is unique
-FromClauseItem = namedtuple('FromClauseItem', 'schema table_refs local_tables')
-Table = namedtuple('Table', ['schema', 'table_refs', 'local_tables'])
-View = namedtuple('View', ['schema', 'table_refs'])
+FromClauseItem = namedtuple('FromClauseItem', 'table_refs local_tables')
+Table = namedtuple('Table', ['table_refs', 'local_tables'])
+View = namedtuple('View', ['table_refs'])
 # JoinConditions are suggested after ON, e.g. 'foo.barid = bar.barid'
 JoinCondition = namedtuple('JoinCondition', ['table_refs', 'parent'])
 # Joins are suggested after JOIN, e.g. 'foo ON foo.barid = bar.barid'
-Join = namedtuple('Join', ['table_refs', 'schema'])
+Join = namedtuple('Join', ['table_refs'])
 
-Function = namedtuple('Function', ['schema', 'table_refs', 'usage'])
+Function = namedtuple('Function', ['table_refs', 'usage'])
 # For convenience, don't require the `usage` argument in Function constructor
-Function.__new__.__defaults__ = (None, tuple(), None)
-Table.__new__.__defaults__ = (None, tuple(), tuple())
-View.__new__.__defaults__ = (None, tuple())
-FromClauseItem.__new__.__defaults__ = (None, tuple(), tuple())
+Function.__new__.__defaults__ = (tuple(), None)
+Table.__new__.__defaults__ = (tuple(), tuple())
+View.__new__.__defaults__ = (tuple())
+FromClauseItem.__new__.__defaults__ = (tuple(), tuple())
 
 Column = namedtuple(
     'Column',
@@ -46,7 +43,7 @@ Column.__new__.__defaults__ = (None, None, tuple(), False, None)
 
 Keyword = namedtuple('Keyword', ['last_token'])
 Keyword.__new__.__defaults__ = (None,)
-Datatype = namedtuple('Datatype', ['schema'])
+Datatype = namedtuple('Datatype', [])
 Alias = namedtuple('Alias', ['aliases'])
 
 Procedure = namedtuple('Procedure', [])
@@ -92,7 +89,8 @@ class SqlStatement(object):
         return self.parsed.token_first().value.lower() == 'insert'
 
     def get_tables(self, scope='full'):
-        """ Gets the tables available in the statement.
+        """
+        Gets the tables available in the statement.
         param `scope:` possible values: 'full', 'insert', 'before'
         If 'insert', only the first table is returned.
         If 'before', only tables before the cursor are returned.
@@ -108,14 +106,6 @@ class SqlStatement(object):
 
     def get_previous_token(self, token):
         return self.parsed.token_prev(self.parsed.token_index(token))[1]
-
-    def get_identifier_schema(self):
-        schema = (self.identifier and self.identifier.get_parent_name()) or None
-        # If schema name is unquoted, lower-case it
-        if schema and self.identifier.value[0] != '"':
-            schema = schema.lower()
-
-        return schema
 
     def reduce_to_prev_keyword(self, n_skip=0):
         prev_keyword, self.text_before_cursor = \
@@ -302,20 +292,12 @@ def suggest_based_on_last_token(token, stmt):
         return (Column(table_refs=stmt.get_tables(),
                        local_tables=stmt.local_tables),)
     elif token_v in ('select', 'where', 'having', 'by', 'distinct'):
-        # Check for a table alias or schema qualification
-        parent = (stmt.identifier and stmt.identifier.get_parent_name()) or []
+        # Check for a table alias
         tables = stmt.get_tables()
-        if parent:
-            tables = tuple(t for t in tables if identifies(parent, t))
-            return (Column(table_refs=tables, local_tables=stmt.local_tables),
-                    Table(schema=parent),
-                    View(schema=parent),
-                    Function(schema=parent),)
-        else:
-            return (Column(table_refs=tables, local_tables=stmt.local_tables,
-                           qualifiable=True),
-                    Function(schema=None),
-                    Keyword(token_v.upper()),)
+        return (Column(table_refs=tables, local_tables=stmt.local_tables,
+                       qualifiable=True),
+                Function(),
+                Keyword(token_v.upper()),)
     elif token_v == 'as':
         # Don't suggest anything for aliases
         return ()
@@ -324,40 +306,31 @@ def suggest_based_on_last_token(token, stmt):
                                                                      'copy', 'from', 'update', 'into', 'describe',
                                                                      'truncate')):
 
-        schema = stmt.get_identifier_schema()
         tables = extract_tables(stmt.text_before_cursor)
         is_join = token_v.endswith('join') and token.is_keyword
 
-        # Suggest tables from either the currently-selected schema or the
-        # public schema if no schema has been specified
         suggest = []
 
-        if not schema:
-            # Suggest schemas
-            suggest.insert(0, Schema())
-
         if token_v == 'from' or is_join:
-            suggest.append(FromClauseItem(schema=schema,
-                                          table_refs=tables,
+            suggest.append(FromClauseItem(table_refs=tables,
                                           local_tables=stmt.local_tables))
         elif token_v == 'truncate':
-            suggest.append(Table(schema))
+            suggest.append(Table())
         else:
-            suggest.extend((Table(schema), View(schema)))
+            suggest.extend((Table(), View()))
 
         if is_join and _allow_join(stmt.parsed):
             tables = stmt.get_tables('before')
-            suggest.append(Join(table_refs=tables, schema=schema))
+            suggest.append(Join(table_refs=tables))
 
         return tuple(suggest)
 
     elif token_v == 'function':
-        schema = stmt.get_identifier_schema()
         # stmt.get_previous_token will fail for e.g. `SELECT 1 FROM functions WHERE function:`
         try:
             prev = stmt.get_previous_token(token).value.lower()
             if prev in ('drop', 'alter', 'create', 'create or replace'):
-                return (Function(schema=schema, usage='signature'),)
+                return (Function(usage='signature'),)
         except ValueError:
             pass
         return tuple()
@@ -365,11 +338,7 @@ def suggest_based_on_last_token(token, stmt):
     elif token_v in ('table', 'view'):
         # E.g. 'ALTER TABLE <tablname>'
         rel_type = {'table': Table, 'view': View, 'function': Function}[token_v]
-        schema = stmt.get_identifier_schema()
-        if schema:
-            return (rel_type(schema=schema),)
-        else:
-            return (Schema(), rel_type(schema=schema))
+        return (rel_type(),)
 
     elif token_v == 'column':
         # E.g. 'ALTER TABLE foo ALTER COLUMN bar
@@ -380,13 +349,13 @@ def suggest_based_on_last_token(token, stmt):
         parent = (stmt.identifier and stmt.identifier.get_parent_name()) or None
         if parent:
             # "ON parent.<suggestion>"
-            # parent can be either a schema name or table alias
+            # parent can be a table alias
             filteredtables = tuple(t for t in tables if identifies(parent, t))
             sugs = [Column(table_refs=filteredtables,
                            local_tables=stmt.local_tables),
-                    Table(schema=parent),
-                    View(schema=parent),
-                    Function(schema=parent)]
+                    Table(),
+                    View(),
+                    Function()]
             if filteredtables and _allow_join_condition(stmt.parsed):
                 sugs.append(JoinCondition(table_refs=tables,
                                           parent=filteredtables[-1]))
@@ -401,15 +370,6 @@ def suggest_based_on_last_token(token, stmt):
             else:
                 return (Alias(aliases=aliases),)
 
-    elif token_v in ('c', 'use', 'database', 'template'):
-        # "\c <db", "use <db>", "DROP DATABASE <db>",
-        # "CREATE DATABASE <newdb> WITH TEMPLATE <db>"
-        return (Database(),)
-    elif token_v == 'schema':
-        # DROP SCHEMA schema_name, SET SCHEMA schema name
-        prev_keyword = stmt.reduce_to_prev_keyword(n_skip=2)
-        quoted = prev_keyword and prev_keyword.value.lower() == 'set'
-        return (Schema(quoted),)
     elif token_v.endswith(',') or token_v in ('=', 'and', 'or'):
         prev_keyword = stmt.reduce_to_prev_keyword()
         if prev_keyword:
@@ -419,13 +379,8 @@ def suggest_based_on_last_token(token, stmt):
     elif token_v in ('type', '::'):
         #   ALTER TABLE foo SET DATA TYPE bar
         #   SELECT foo::bar
-        # Note that tables are a form of composite type in postgresql, so
-        # they're suggested here as well
-        schema = stmt.get_identifier_schema()
-        suggestions = [Datatype(schema=schema),
-                       Table(schema=schema)]
-        if not schema:
-            suggestions.append(Schema())
+        suggestions = [Datatype(),
+                       Table()]
         return tuple(suggestions)
     elif token_v in {'alter', 'create', 'drop'}:
         return (Keyword(token_v.upper()),)
@@ -444,8 +399,7 @@ def suggest_based_on_last_token(token, stmt):
 def identifies(id, ref):
     """Returns true if string `id` matches TableReference `ref`"""
 
-    return id == ref.alias or id == ref.name or (
-            ref.schema and (id == ref.schema + '.' + ref.name))
+    return id == ref.alias or id == ref.name
 
 
 def _allow_join_condition(statement):
