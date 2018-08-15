@@ -18,7 +18,7 @@ class VoltRefresher(object):
         if self.is_refreshing():
             # if _refresher_thread is already running, force the previous one to refresh from beginning
             self._restart_refresh.set()
-            return
+            return 'Auto-completion refresh restarted.'
 
         self._refresher_thread = threading.Thread(
             target=self._background_refresh,
@@ -26,7 +26,7 @@ class VoltRefresher(object):
             name='completion_refresh')
         self._refresher_thread.setDaemon(True)
         self._refresher_thread.start()
-        return
+        return 'Auto-completion refresh started in the background.'
 
     def is_refreshing(self):
         return self._refresher_thread and self._refresher_thread.is_alive()
