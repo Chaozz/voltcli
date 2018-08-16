@@ -1,13 +1,16 @@
 from __future__ import print_function
-import sys
+
 import re
-import sqlparse
+import sys
 from collections import namedtuple
+
+import sqlparse
 from sqlparse.sql import Comparison, Identifier, Where
+
+from parseutils.ctes import isolate_query_ctes
+from parseutils.tables import extract_tables
 from parseutils.utils import (
     last_word, find_prev_keyword, parse_partial_identifier)
-from parseutils.tables import extract_tables
-from parseutils.ctes import isolate_query_ctes
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
@@ -21,7 +24,7 @@ else:
 # `table_refs` contains the list of tables/... already in the statement,
 # used to ensure that the alias we suggest is unique
 FromClauseItem = namedtuple('FromClauseItem', 'table_refs local_tables')
-Table = namedtuple('Table', ['table_refs', 'local_tables'])
+Table = namedtuple('Table', 'table_refs local_tables')
 View = namedtuple('View', ['table_refs'])
 # JoinConditions are suggested after ON, e.g. 'foo.barid = bar.barid'
 JoinCondition = namedtuple('JoinCondition', ['table_refs', 'parent'])
@@ -32,7 +35,7 @@ Function = namedtuple('Function', ['table_refs', 'usage'])
 # For convenience, don't require the `usage` argument in Function constructor
 Function.__new__.__defaults__ = (tuple(), None)
 Table.__new__.__defaults__ = (tuple(), tuple())
-View.__new__.__defaults__ = (tuple())
+View.__new__.__defaults__ = (None, )
 FromClauseItem.__new__.__defaults__ = (tuple(), tuple())
 
 Column = namedtuple(
@@ -302,10 +305,8 @@ def suggest_based_on_last_token(token, stmt):
         # Don't suggest anything for aliases
         return ()
     elif (token_v.endswith('join') and token.is_keyword) or (token_v in
-                                                             (
-                                                                     'copy', 'from', 'update', 'into', 'describe',
-                                                                     'truncate')):
-
+                                                             ('copy', 'from', 'update', 'into', 'describe',
+                                                              'truncate')):
         tables = extract_tables(stmt.text_before_cursor)
         is_join = token_v.endswith('join') and token.is_keyword
 

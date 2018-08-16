@@ -32,10 +32,11 @@ class VoltCompleter(Completer):
         self.keyword_casing = "upper"
         self.name_pattern = re.compile(r"^[_a-z][_a-z0-9\$]*$")
         # metadata should be updated in real-time
-        self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
+        # note that we assume name of tables and views are in upper-case
+        self.dbmetadata = {'tables': {}, 'views': {}, 'functions': [],
                            'datatypes': []}
         # TODO: casing is not enabled yet
-        # casing should be a dict {lowercasename:PreferredCasingName}
+        # casing should be a dict {lowercasename: PreferredCasingName}
         self.casing = {}
 
         self.all_completions = set(self.keywords + self.functions)
@@ -60,7 +61,7 @@ class VoltCompleter(Completer):
         return [self.escape_name(name) for name in names]
 
     def reset_completions(self):
-        self.dbmetadata = {'tables': {}, 'views': [], 'functions': [],
+        self.dbmetadata = {'tables': {}, 'views': {}, 'functions': [],
                            'datatypes': []}
         self.all_completions = set(self.keywords + self.functions)
 
@@ -245,19 +246,19 @@ class VoltCompleter(Completer):
                 self.find_matches(word_before_cursor,
                                   self.dbmetadata['tables'].keys(), meta='table')
                 + self.find_matches(word_before_cursor,
-                                    self.dbmetadata['views'], meta='view')
+                                    self.dbmetadata['views'].keys(), meta='view')
                 + self.find_matches(word_before_cursor, self.functions, meta='function')
                 + self.find_matches(word_before_cursor, self.dbmetadata['functions'],
                                     meta='function')
         )
 
     def get_table_matches(self, suggestion, word_before_cursor, alias=False):
-        self.find_matches(word_before_cursor,
-                          self.dbmetadata['tables'].keys(), meta='table')
+        return self.find_matches(word_before_cursor,
+                                 self.dbmetadata['tables'].keys(), meta='table')
 
     def get_view_matches(self, suggestion, word_before_cursor, alias=False):
-        self.find_matches(word_before_cursor,
-                          self.dbmetadata['views'], meta='view')
+        return self.find_matches(word_before_cursor,
+                                 self.dbmetadata['views'].keys(), meta='view')
 
     def get_alias_matches(self, suggestion, word_before_cursor):
         aliases = suggestion.aliases

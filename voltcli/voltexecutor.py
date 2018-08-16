@@ -51,7 +51,7 @@ class VoltExecutor(object):
 
     # TODO: currently consider view same as table, so leave it blank
     def get_view_catalog(self):
-        return []
+        return dict()
 
     def get_function_catalog(self):
         if not self.check_client_alive():
