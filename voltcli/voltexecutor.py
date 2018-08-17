@@ -4,13 +4,39 @@ from voltdbclient import *
 
 
 class VoltExecutor(object):
-    def __init__(self, server, port, user, password, query_timeout):
+    def __init__(self, server, port, user, password, query_timeout, kerberos, ssl, ssl_set, credentials):
         self.client = None
         self.parameters = {"host": server, "port": port, "procedure_timeout": query_timeout}
         if user:
             self.parameters["username"] = user
         if password:
             self.parameters["password"] = password
+
+        if credentials:
+            # if credential file is specified, parse it as username/password
+            try:
+                with open(credentials, "r") as credentialsFile:
+                    content = ""
+                    for line in credentialsFile:
+                        content += line
+                    _, usr, _, pswd = content.replace(':', ' ').split()
+                    self.parameters["username"] = usr
+                    self.parameters["password"] = pswd
+            except IOError:
+                print("Credentials file not found or permission denied.")
+
+        if kerberos:
+            # use kerberos auth
+            # more notes:
+            # you must first make sure you have the python-gssapi package installed.
+            # Then, login to your Kerberos account using kinit before invoking the Python client.
+            self.parameters["kerberos"] = True
+
+        if ssl or ssl_set:
+            self.parameters["usessl"] = True
+
+        if ssl_set:
+            self.parameters["ssl_config_file"] = ssl_set
 
         self.init_client()
 

@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import pytest
+from prompt_toolkit.completion import Completion
 
 from utils import (MetaData, table, view, function, column, get_result, result_set, keyword)
 
@@ -207,8 +208,32 @@ def test_join_using_suggests_columns_after_first_column(completer, text):
     assert result == set(cols)
 
 
-# @parametrize('completer', no_casing_completers)
-# def test_auto_escaped_col_names(completer):
-#     result = result_set(completer, 'SELECT  from "select"', len('SELECT '))
-#     assert result == set(testdata.columns_functions_and_keywords('SELECT'))
+@parametrize('completer', no_casing_completers)
+def test_auto_escaped_col_names(completer):
+    result = result_set(completer, 'SELECT  from "select"', len('SELECT '))
+    assert result == set(testdata.columns_functions_and_keywords('SELECT'))
+
+
+@parametrize('completer', no_casing_completers)
+def test_columns_before_keywords(completer):
+    text = 'SELECT * FROM orders WHERE s'
+    completions = get_result(completer, text)
+
+    col = column('status', -1)
+    kw = keyword('SELECT', -1)
+
+    assert completions.index(col) < completions.index(kw)
+
+
+@parametrize('completer', no_casing_completers)
+@parametrize('text', [
+    'INSERT INTO users ()',
+    'INSERT INTO users()',
+    'INSERT INTO users () SELECT * FROM orders;',
+    'INSERT INTO users() SELECT * FROM users u cross join orders o',
+])
+def test_insert(completer, text):
+    position = text.find('(') + 1
+    result = result_set(completer, text, position)
+    assert result == set(testdata.columns('USERS'))
 
